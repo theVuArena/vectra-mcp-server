@@ -7,14 +7,24 @@ import {
   McpError,
 } from '@modelcontextprotocol/sdk/types.js';
 import axios, { type AxiosInstance } from 'axios';
+import FirecrawlApp from '@mendable/firecrawl-js'; // Import Firecrawl SDK
 import { VECTRA_API_URL } from './config.js';
 import { toolsList } from './tools.js';
 import * as validators from './validators.js';
 import { handleApiCall, handleEmbedFile } from './handlers.js';
 
+// Read Firecrawl API key from environment
+const firecrawlApiKey = process.env.FIRECRAWL_API_KEY;
+if (!firecrawlApiKey) {
+  console.warn('FIRECRAWL_API_KEY environment variable not set for vectra-mcp-server. URL ingestion will fail.');
+}
+const firecrawl = firecrawlApiKey ? new FirecrawlApp({ apiKey: firecrawlApiKey }) : null;
+
+
 export class VectraMcpServer {
   private server: Server;
   private axiosInstance: AxiosInstance;
+  // Removed firecrawl instance variable, using the one declared above
 
   constructor() {
     this.server = new Server(
@@ -68,10 +78,44 @@ export class VectraMcpServer {
              if (!validators.isValidListCollectionsArgs(args)) throw new McpError(ErrorCode.InvalidParams, 'Invalid arguments for list_collections');
             return handleApiCall(this.axiosInstance, '/v1/collections', 'get', name);
 
+          // Reverted tool name to embed_file and added scraping logic
           case 'embed_file':
-            if (!validators.isValidEmbedFileArgs(args)) throw new McpError(ErrorCode.InvalidParams, 'Invalid arguments for embed_file');
-            // Pass url instead of filePath to the handler
-            return handleEmbedFile(this.axiosInstance, args.url, args.collectionId);
+            // Validate args and ensure correct type for TypeScript
+            if (!validators.isValidEmbedFileArgs(args)) {
+               throw new McpError(ErrorCode.InvalidParams, 'Invalid arguments for embed_file');
+            }
+            // Now TypeScript knows args has url and optional collectionId
+            const embedArgs = args;
+
+            if (!firecrawl) {
+              throw new McpError(ErrorCode.InternalError, 'Firecrawl API key not configured for vectra-mcp-server.');
+            }
+
+            try {
+              console.log(`Scraping URL: ${embedArgs.url}`);
+              // Scrape the URL using the SDK
+              const scrapeResult = await firecrawl.scrapeUrl(embedArgs.url, { onlyMainContent: true });
+
+              // Explicitly check for success and markdown content
+              let markdownContent: string | null = null;
+              if (scrapeResult && 'markdown' in scrapeResult && typeof scrapeResult.markdown === 'string') {
+                 markdownContent = scrapeResult.markdown;
+              }
+
+              if (!markdownContent) {
+                 console.error(`Failed to scrape markdown from ${embedArgs.url}. Result:`, scrapeResult);
+                 throw new McpError(ErrorCode.InternalError, `Failed to scrape content from URL: ${embedArgs.url}`);
+              }
+              console.log(`Scraping successful for ${embedArgs.url}. Uploading content...`);
+
+              // Pass the scraped markdown content and original URL to the handler
+              return handleEmbedFile(this.axiosInstance, markdownContent, embedArgs.url, embedArgs.collectionId);
+
+            } catch (scrapeError) {
+               console.error(`Error during Firecrawl scraping for ${embedArgs.url}:`, scrapeError);
+               const message = scrapeError instanceof Error ? scrapeError.message : 'Unknown scraping error';
+               throw new McpError(ErrorCode.InternalError, `Scraping failed for ${embedArgs.url}: ${message}`);
+            }
 
           case 'add_file_to_collection':
             if (!validators.isValidAddFileToCollectionArgs(args)) throw new McpError(ErrorCode.InvalidParams, 'Invalid arguments for add_file_to_collection');

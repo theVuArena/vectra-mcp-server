@@ -8,9 +8,9 @@ export function isValidListCollectionsArgs(args: any): args is {} {
   return typeof args === 'object' && args !== null && Object.keys(args).length === 0;
 }
 
-// Updated to check for 'url' instead of 'filePath'
+// Reverted validator name and check for 'url'
 export function isValidEmbedFileArgs(args: any): args is { url: string; collectionId?: string } {
-  // Basic check for url format - could be enhanced with regex or a library if needed
+  // Basic check for url format
   return typeof args === 'object' && args !== null && typeof args.url === 'string' && args.url.length > 0 && (args.collectionId === undefined || typeof args.collectionId === 'string');
 }
 

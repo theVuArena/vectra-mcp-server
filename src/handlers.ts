@@ -122,35 +122,41 @@ export async function handleApiCall(
   }
 }
 
-// Specific handler for URL ingestion
-export async function handleEmbedFile( // Renamed conceptually, but keeping function name for now
+// Specific handler for uploading scraped content
+export async function handleEmbedFile(
     axiosInstance: AxiosInstance,
-    url: string, // Changed from filePath to url
+    scrapedContent: string, // Changed from url to scrapedContent (string)
+    originalUrl: string, // Keep original URL for filename/metadata
     collectionId?: string
 ) {
-  const toolName = 'embed_file'; // Tool name remains the same
+  const toolName = 'embed_file';
   try {
-    // Prepare JSON payload
-    const payload: { url: string; collectionId?: string } = { url };
+    // Use original URL to generate a filename, or use a UUID
+    const fileName = `${new URL(originalUrl).hostname}_${Date.now()}.md`; // Example filename
+    const formData = new FormData();
+    // Append content as a buffer
+    formData.append('file', Buffer.from(scrapedContent, 'utf-8'), fileName);
     if (collectionId) {
-      payload.collectionId = collectionId;
+      formData.append('collection_id', collectionId); // API expects this field name
     }
+    // Add original URL to metadata if the API supports it via form data (check API docs)
+    // formData.append('metadata[sourceUrl]', originalUrl); // Example if API supports nested metadata
 
-    // Call the new ingest-url endpoint with JSON data
-    const response = await axiosInstance.post('/v1/files/ingest-url', payload, {
-      headers: { 'Content-Type': 'application/json' }, // Ensure correct content type
+    // Call the original upload endpoint
+    const response = await axiosInstance.post('/v1/files/upload', formData, {
+      headers: formData.getHeaders(), // Important for multipart/form-data
     });
 
      // Check for API-level errors (4xx)
     if (response.status >= 400) {
        const errorData = response.data;
        const errorMessage = errorData?.message || `API Error: ${response.status} ${response.statusText}`;
-       console.error(`API Error calling POST /v1/files/ingest-url:`, errorMessage, errorData);
+       console.error(`API Error calling POST /v1/files/upload for scraped content:`, errorMessage, errorData);
        throw new McpError(ErrorCode.InternalError, errorMessage);
     }
 
     // Format the successful response
-    let summary = `Successfully submitted URL "${url}" for ingestion. Embedding is pending.`;
+    let summary = `Successfully uploaded scraped content from "${originalUrl}". Embedding is pending.`;
     if (response.data?.data?.id) {
        summary += ` File ID: ${response.data.data.id}`;
     }
@@ -159,17 +165,16 @@ export async function handleEmbedFile( // Renamed conceptually, but keeping func
   } catch (error) {
      if (error instanceof McpError) throw error; // Re-throw known MCP errors
 
-     let errorMessage = `Failed to ingest URL ${url}`;
+     let errorMessage = `Failed to upload scraped content from ${originalUrl}`;
       if (error instanceof AxiosError) {
        errorMessage = error.message;
        if (error.response?.data?.message) {
           errorMessage = `${errorMessage}: ${error.response.data.message}`;
        }
      } else if (error instanceof Error) {
-       // No longer expecting file system errors here
        errorMessage = error.message;
      }
-     console.error(`Error ingesting URL ${url}:`, error);
+     console.error(`Error uploading scraped content from ${originalUrl}:`, error);
      throw new McpError(ErrorCode.InternalError, errorMessage);
   }
 }

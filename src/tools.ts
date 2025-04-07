@@ -12,15 +12,16 @@ export const CreateCollectionArgsSchema = {
 
 export const ListCollectionsArgsSchema = { type: 'object', properties: {} } as const; // No args needed
 
-// Updated schema for URL ingestion
+// Schema expects URL for scraping
 export const EmbedFileArgsSchema = {
   type: 'object',
   properties: {
-    url: { type: 'string', description: 'URL of the web page to scrape and embed' }, // Changed filePath to url
+    url: { type: 'string', description: 'URL of the web page to scrape and embed' },
     collectionId: { type: 'string', description: 'Optional ID of the collection to add the file to initially' },
   },
-  required: ['url'], // Changed required field to url
+  required: ['url'],
 } as const;
+
 
 export const AddFileToCollectionArgsSchema = {
   type: 'object',
@@ -89,7 +90,7 @@ export const DeleteFileArgsSchema = {
 export const toolsList = [
   { name: 'create_collection', description: 'Create a new Vectra collection', inputSchema: CreateCollectionArgsSchema },
   { name: 'list_collections', description: 'List existing Vectra collections', inputSchema: ListCollectionsArgsSchema },
-  // Updated description for embed_file
+  // Using embed_file name with the URL schema
   { name: 'embed_file', description: 'Scrape content from a URL and embed it into Vectra', inputSchema: EmbedFileArgsSchema },
   { name: 'add_file_to_collection', description: 'Add an embedded file to a Vectra collection', inputSchema: AddFileToCollectionArgsSchema },
   { name: 'list_files_in_collection', description: 'List files within a specific Vectra collection', inputSchema: ListFilesInCollectionArgsSchema },
