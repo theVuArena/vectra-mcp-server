@@ -12,13 +12,14 @@ export const CreateCollectionArgsSchema = {
 
 export const ListCollectionsArgsSchema = { type: 'object', properties: {} } as const; // No args needed
 
+// Updated schema for URL ingestion
 export const EmbedFileArgsSchema = {
   type: 'object',
   properties: {
-    filePath: { type: 'string', description: 'Path to the local file to upload and embed' },
+    url: { type: 'string', description: 'URL of the web page to scrape and embed' }, // Changed filePath to url
     collectionId: { type: 'string', description: 'Optional ID of the collection to add the file to initially' },
   },
-  required: ['filePath'],
+  required: ['url'], // Changed required field to url
 } as const;
 
 export const AddFileToCollectionArgsSchema = {
@@ -88,7 +89,8 @@ export const DeleteFileArgsSchema = {
 export const toolsList = [
   { name: 'create_collection', description: 'Create a new Vectra collection', inputSchema: CreateCollectionArgsSchema },
   { name: 'list_collections', description: 'List existing Vectra collections', inputSchema: ListCollectionsArgsSchema },
-  { name: 'embed_file', description: 'Upload and embed a local file into Vectra', inputSchema: EmbedFileArgsSchema },
+  // Updated description for embed_file
+  { name: 'embed_file', description: 'Scrape content from a URL and embed it into Vectra', inputSchema: EmbedFileArgsSchema },
   { name: 'add_file_to_collection', description: 'Add an embedded file to a Vectra collection', inputSchema: AddFileToCollectionArgsSchema },
   { name: 'list_files_in_collection', description: 'List files within a specific Vectra collection', inputSchema: ListFilesInCollectionArgsSchema },
   { name: 'query_collection', description: 'Query the knowledge base within a specific Vectra collection', inputSchema: QueryCollectionArgsSchema },

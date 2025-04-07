@@ -8,8 +8,10 @@ export function isValidListCollectionsArgs(args: any): args is {} {
   return typeof args === 'object' && args !== null && Object.keys(args).length === 0;
 }
 
-export function isValidEmbedFileArgs(args: any): args is { filePath: string; collectionId?: string } {
-  return typeof args === 'object' && args !== null && typeof args.filePath === 'string' && (args.collectionId === undefined || typeof args.collectionId === 'string');
+// Updated to check for 'url' instead of 'filePath'
+export function isValidEmbedFileArgs(args: any): args is { url: string; collectionId?: string } {
+  // Basic check for url format - could be enhanced with regex or a library if needed
+  return typeof args === 'object' && args !== null && typeof args.url === 'string' && args.url.length > 0 && (args.collectionId === undefined || typeof args.collectionId === 'string');
 }
 
 export function isValidAddFileToCollectionArgs(args: any): args is { collectionId: string; fileId: string } {

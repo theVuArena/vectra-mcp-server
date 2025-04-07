@@ -70,7 +70,8 @@ export class VectraMcpServer {
 
           case 'embed_file':
             if (!validators.isValidEmbedFileArgs(args)) throw new McpError(ErrorCode.InvalidParams, 'Invalid arguments for embed_file');
-            return handleEmbedFile(this.axiosInstance, args.filePath, args.collectionId);
+            // Pass url instead of filePath to the handler
+            return handleEmbedFile(this.axiosInstance, args.url, args.collectionId);
 
           case 'add_file_to_collection':
             if (!validators.isValidAddFileToCollectionArgs(args)) throw new McpError(ErrorCode.InvalidParams, 'Invalid arguments for add_file_to_collection');

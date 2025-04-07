@@ -122,36 +122,35 @@ export async function handleApiCall(
   }
 }
 
-// Specific handler for file embedding (multipart/form-data)
-export async function handleEmbedFile(
+// Specific handler for URL ingestion
+export async function handleEmbedFile( // Renamed conceptually, but keeping function name for now
     axiosInstance: AxiosInstance,
-    filePath: string,
+    url: string, // Changed from filePath to url
     collectionId?: string
 ) {
-  const toolName = 'embed_file';
+  const toolName = 'embed_file'; // Tool name remains the same
   try {
-    const fileContent = await fs.readFile(filePath);
-    const fileName = path.basename(filePath);
-    const formData = new FormData();
-    formData.append('file', fileContent, fileName);
+    // Prepare JSON payload
+    const payload: { url: string; collectionId?: string } = { url };
     if (collectionId) {
-      formData.append('collection_id', collectionId); // API expects this field name
+      payload.collectionId = collectionId;
     }
 
-    const response = await axiosInstance.post('/v1/files/upload', formData, {
-      headers: formData.getHeaders(), // Important for multipart/form-data
+    // Call the new ingest-url endpoint with JSON data
+    const response = await axiosInstance.post('/v1/files/ingest-url', payload, {
+      headers: { 'Content-Type': 'application/json' }, // Ensure correct content type
     });
 
      // Check for API-level errors (4xx)
     if (response.status >= 400) {
        const errorData = response.data;
        const errorMessage = errorData?.message || `API Error: ${response.status} ${response.statusText}`;
-       console.error(`API Error calling POST /v1/files/upload:`, errorMessage, errorData);
+       console.error(`API Error calling POST /v1/files/ingest-url:`, errorMessage, errorData);
        throw new McpError(ErrorCode.InternalError, errorMessage);
     }
 
     // Format the successful response
-    let summary = `Successfully uploaded "${fileName}". Embedding is pending.`;
+    let summary = `Successfully submitted URL "${url}" for ingestion. Embedding is pending.`;
     if (response.data?.data?.id) {
        summary += ` File ID: ${response.data.data.id}`;
     }
@@ -160,20 +159,17 @@ export async function handleEmbedFile(
   } catch (error) {
      if (error instanceof McpError) throw error; // Re-throw known MCP errors
 
-     let errorMessage = `Failed to embed file ${filePath}`;
+     let errorMessage = `Failed to ingest URL ${url}`;
       if (error instanceof AxiosError) {
        errorMessage = error.message;
        if (error.response?.data?.message) {
           errorMessage = `${errorMessage}: ${error.response.data.message}`;
        }
      } else if (error instanceof Error) {
-       // Check for file system errors (e.g., file not found)
-       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-          throw new McpError(ErrorCode.InvalidParams, `File not found: ${filePath}`);
-       }
+       // No longer expecting file system errors here
        errorMessage = error.message;
      }
-     console.error(`Error embedding file ${filePath}:`, error);
+     console.error(`Error ingesting URL ${url}:`, error);
      throw new McpError(ErrorCode.InternalError, errorMessage);
   }
 }
