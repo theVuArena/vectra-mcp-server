@@ -8,11 +8,7 @@ export function isValidListCollectionsArgs(args: any): args is {} {
   return typeof args === 'object' && args !== null && Object.keys(args).length === 0;
 }
 
-// Reverted validator name and check for 'url'
-export function isValidEmbedFileArgs(args: any): args is { url: string; collectionId?: string } {
-  // Basic check for url format
-  return typeof args === 'object' && args !== null && typeof args.url === 'string' && args.url.length > 0 && (args.collectionId === undefined || typeof args.collectionId === 'string');
-}
+// Removed isValidEmbedFileArgs
 
 export function isValidAddFileToCollectionArgs(args: any): args is { collectionId: string; fileId: string } {
   return typeof args === 'object' && args !== null && typeof args.collectionId === 'string' && typeof args.fileId === 'string';
@@ -68,4 +64,86 @@ export function isValidQueryCollectionArgs(args: any): args is QueryCollectionAr
 
 export function isValidDeleteFileArgs(args: any): args is { fileId: string } {
   return typeof args === 'object' && args !== null && typeof args.fileId === 'string';
+}
+
+// Removed isValidEmbedTextArgs
+
+// Type definition for a single item in the embed_texts batch
+type EmbedTextItem = {
+  text: string;
+  metadata?: Record<string, string>;
+};
+
+// Validator for the batch embed_texts tool
+export function isValidEmbedTextsArgs(args: any): args is { items: EmbedTextItem[]; collectionId?: string } {
+  if (typeof args !== 'object' || args === null) {
+    return false;
+  }
+  if (args.collectionId !== undefined && typeof args.collectionId !== 'string') {
+    return false;
+  }
+  if (!Array.isArray(args.items)) {
+    return false;
+  }
+  // Check each item in the array
+  for (const item of args.items) {
+    if (typeof item !== 'object' || item === null || typeof item.text !== 'string') {
+      return false; // Each item must be an object with a text string
+    }
+    // Validate metadata within each item if present
+    if (item.metadata !== undefined) {
+      if (typeof item.metadata !== 'object' || item.metadata === null || Array.isArray(item.metadata)) {
+        return false;
+      }
+      for (const key in item.metadata) {
+        if (Object.prototype.hasOwnProperty.call(item.metadata, key)) {
+          if (typeof item.metadata[key] !== 'string') {
+            return false; // Ensure all metadata values are strings
+          }
+        }
+      }
+    }
+  }
+  return true; // All checks passed
+}
+
+
+// Type definition for embed_files arguments
+type EmbedFilesArgs = {
+  sources: string[];
+  collectionId?: string;
+  metadata?: Record<string, string>;
+};
+
+// Validator for the batch embed_files tool
+export function isValidEmbedFilesArgs(args: any): args is EmbedFilesArgs {
+  if (typeof args !== 'object' || args === null) {
+    return false;
+  }
+  if (args.collectionId !== undefined && typeof args.collectionId !== 'string') {
+    return false;
+  }
+  // Validate sources array
+  if (!Array.isArray(args.sources) || args.sources.length === 0) { // Must have at least one source
+    return false;
+  }
+  for (const source of args.sources) {
+    if (typeof source !== 'string' || source.trim() === '') {
+      return false; // Each source must be a non-empty string
+    }
+  }
+  // Validate optional top-level metadata
+  if (args.metadata !== undefined) {
+    if (typeof args.metadata !== 'object' || args.metadata === null || Array.isArray(args.metadata)) {
+      return false;
+    }
+    for (const key in args.metadata) {
+      if (Object.prototype.hasOwnProperty.call(args.metadata, key)) {
+        if (typeof args.metadata[key] !== 'string') {
+          return false; // Ensure all metadata values are strings
+        }
+      }
+    }
+  }
+  return true; // All checks passed
 }

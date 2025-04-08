@@ -86,14 +86,79 @@ export const DeleteFileArgsSchema = {
   required: ['fileId'],
 } as const;
 
+// Schema for embedding raw text
+export const EmbedTextArgsSchema = {
+  type: 'object',
+  properties: {
+    text: { type: 'string', description: 'The text content to embed' },
+    collectionId: { type: 'string', description: 'Optional ID of the collection to add the text to initially' },
+    metadata: {
+      type: 'object',
+      description: 'Optional key-value pairs for metadata (e.g., source_url, title, tags)',
+      additionalProperties: { type: 'string' } // Allow arbitrary string key-value pairs
+    }
+  },
+  required: ['text'],
+} as const;
+
+// Schema for embedding multiple texts in batch
+export const EmbedTextsArgsSchema = {
+  type: 'object',
+  properties: {
+    collectionId: { type: 'string', description: 'Optional ID of the collection to add all texts to' },
+    items: {
+      type: 'array',
+      description: 'An array of text items to embed',
+      items: {
+        type: 'object',
+        properties: {
+          text: { type: 'string', description: 'The text content to embed' },
+          metadata: {
+            type: 'object',
+            description: 'Optional key-value pairs for metadata for this specific text item',
+            additionalProperties: { type: 'string' }
+          }
+        },
+        required: ['text']
+      }
+    }
+  },
+  required: ['items'],
+} as const;
+
+// Schema for embedding multiple local files
+export const EmbedFilesArgsSchema = {
+  type: 'object',
+  properties: {
+    sources: {
+      type: 'array',
+      description: 'An array of local file paths to embed',
+      items: {
+        type: 'string',
+        description: 'A local file path'
+      }
+    },
+    collectionId: { type: 'string', description: 'Optional ID of the collection to add all embedded files to' },
+    metadata: { // Adding top-level metadata applicable to all sources unless overridden
+      type: 'object',
+      description: 'Optional key-value pairs for metadata to apply to all items (e.g., tags)',
+      additionalProperties: { type: 'string' }
+    }
+  },
+  required: ['sources'],
+} as const;
+
+
 // List of all tools provided by the server
 export const toolsList = [
   { name: 'create_collection', description: 'Create a new Vectra collection', inputSchema: CreateCollectionArgsSchema },
   { name: 'list_collections', description: 'List existing Vectra collections', inputSchema: ListCollectionsArgsSchema },
-  // Using embed_file name with the URL schema
-  { name: 'embed_file', description: 'Scrape content from a URL and embed it into Vectra', inputSchema: EmbedFileArgsSchema },
+  // Removed embed_file tool
   { name: 'add_file_to_collection', description: 'Add an embedded file to a Vectra collection', inputSchema: AddFileToCollectionArgsSchema },
   { name: 'list_files_in_collection', description: 'List files within a specific Vectra collection', inputSchema: ListFilesInCollectionArgsSchema },
+  // Removed embed_text tool
+  { name: 'embed_texts', description: 'Embeds multiple text items in batch into Vectra', inputSchema: EmbedTextsArgsSchema },
+  { name: 'embed_files', description: 'Reads multiple local files and embeds their content', inputSchema: EmbedFilesArgsSchema }, // Updated description
   { name: 'query_collection', description: 'Query the knowledge base within a specific Vectra collection', inputSchema: QueryCollectionArgsSchema },
   { name: 'delete_file', description: 'Delete a file and its embeddings from Vectra', inputSchema: DeleteFileArgsSchema },
 ];
