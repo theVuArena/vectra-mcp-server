@@ -46,17 +46,29 @@ export function formatResponse(toolName: string, responseData: any): { content: 
         break;
       case 'query_collection':
         if (responseData?.data?.results && Array.isArray(responseData.data.results)) {
-          // Filter out results with section title 'DOCKER'
-          const filteredResults = responseData.data.results.filter((res: any) => res.metadata?.section_title !== 'DOCKER');
+          // Removed the filter for 'DOCKER' section_title
+          const results = responseData.data.results; // Use original results directly
 
-          if (filteredResults.length > 0) {
-            summary = "Query Results:\n" + filteredResults.map((res: any, index: number) => {
-              const text = res.metadata?.chunk_text || 'No text found';
-              const section = res.metadata?.section_title || 'Unknown Section';
+          if (results.length > 0) { // Check original results length
+            summary = "Query Results:\n" + results.map((res: any, index: number) => { // Map original results
               const distance = res.distance?.toFixed(4) || 'N/A';
-              // Return the full text instead of a substring
-              return `${index + 1}. [Section: ${section}] (Distance: ${distance})\n   ${text}`;
-            }).join('\n\n');
+              const metadata = res.metadata || {};
+              const text = metadata.chunk_text || 'No text found';
+              const keywords = metadata.excerptKeywords;
+              const questions = metadata.questionsThisExcerptCanAnswer;
+
+              // Build the output string using Markdown
+              let outputParts = [`### Result ${index + 1}`]; // Markdown heading
+              outputParts.push(`**Distance:** ${distance}`);
+              outputParts.push(`**Text:**\n\`\`\`\n${text}\n\`\`\``); // Code block for text
+              if (keywords) {
+                outputParts.push(`**Keywords:**\n${keywords}`);
+              }
+              if (questions) {
+                 outputParts.push(`**Questions Answered:**\n${questions}`);
+              }
+              return outputParts.join('\n\n'); // Join parts with double newline for spacing
+            }).join('\n\n---\n\n'); // Separate results with a horizontal rule
           } else {
             summary = "No relevant results found for the query in this collection.";
           }
