@@ -28,6 +28,12 @@ type QueryCollectionArgs = {
   maxDistance?: number;
   includeMetadataFilters?: Array<{ field: string; value: string }>;
   excludeMetadataFilters?: Array<{ field: string; value?: string; pattern?: string }>;
+  // --- Add Graph Search Params to Type ---
+  enableGraphSearch?: boolean;
+  graphDepth?: number;
+  graphTopN?: number;
+  graphRelationshipTypes?: string[];
+  // --- End Graph Search Params ---
 };
 
 // Re-declare the function with the explicit type for better type safety
@@ -59,6 +65,11 @@ export function isValidQueryCollectionArgs(args: any): args is QueryCollectionAr
    }
 
    return true; // All checks passed
+}
+
+// Validator for the get_arangodb_node tool
+export function isValidGetArangoDbNodeArgs(args: any): args is { nodeKey: string } {
+  return typeof args === 'object' && args !== null && typeof args.nodeKey === 'string' && args.nodeKey.trim() !== '';
 }
 
 

@@ -21,7 +21,8 @@ import {
   isValidQueryCollectionArgs,
   isValidDeleteFileArgs,
   isValidEmbedTextsArgs,
-  isValidEmbedFilesArgs // Added new validator import
+  isValidEmbedFilesArgs, // Added new validator import
+  isValidGetArangoDbNodeArgs // Import the new validator
 } from './validators.js';
 // Import new handler, remove unused ones
 import { handleApiCall, handleEmbedTexts, handleEmbedFiles } from './handlers.js';
@@ -123,6 +124,12 @@ export class VectraMcpServer {
               maxDistance: args.maxDistance,
               includeMetadataFilters: args.includeMetadataFilters,
               excludeMetadataFilters: args.excludeMetadataFilters,
+              // --- Add Graph Search Params ---
+              enableGraphSearch: args.enableGraphSearch,
+              graphDepth: args.graphDepth,
+              graphTopN: args.graphTopN,
+              graphRelationshipTypes: args.graphRelationshipTypes,
+              // --- End Graph Search Params ---
             };
             // Remove undefined keys before sending
             Object.keys(queryPayload).forEach(key => queryPayload[key as keyof typeof queryPayload] === undefined && delete queryPayload[key as keyof typeof queryPayload]);
@@ -131,6 +138,13 @@ export class VectraMcpServer {
           case 'delete_file':
             if (!isValidDeleteFileArgs(args)) throw new McpError(ErrorCode.InvalidParams, 'Invalid arguments for delete_file');
             return handleApiCall(this.axiosInstance, `/v1/files/${args.fileId}`, 'delete', name);
+
+          // --- Add handler for the new tool ---
+          case 'get_arangodb_node':
+            if (!isValidGetArangoDbNodeArgs(args)) throw new McpError(ErrorCode.InvalidParams, 'Invalid arguments for get_arangodb_node');
+            // Call the new backend endpoint
+            return handleApiCall(this.axiosInstance, `/v1/arangodb/nodes/${args.nodeKey}`, 'get', name);
+          // --- End new tool handler ---
 
           default:
             throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);

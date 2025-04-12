@@ -47,8 +47,14 @@ export const QueryCollectionArgsSchema = {
     queryText: { type: 'string', description: 'The query text to search for' },
     limit: { type: 'number', description: 'Maximum number of results (default 10)', default: 10 },
     searchMode: { type: 'string', enum: ['vector', 'keyword', 'hybrid'], description: 'Search mode (default vector)', default: 'vector' },
-    // enableHeuristicReranking: { type: 'boolean', description: 'Enable heuristic re-ranking (default false)', default: false }, // REMOVED
     maxDistance: { type: 'number', description: 'Max vector distance (0-2, lower is more similar)' },
+    enableGraphSearch: { type: 'boolean', description: 'Enable graph traversal enhancement (default false)', default: false },
+    graphDepth: { type: 'number', description: 'Depth for graph traversal (default 1)', default: 1 },
+    graphRelationshipTypes: {
+      type: 'array',
+      description: 'Optional list of relationship types to filter graph traversal (e.g., ["cites", "mentions"])',
+      items: { type: 'string' }
+    },
     includeMetadataFilters: {
       type: 'array',
       description: 'Filter results to include only those matching these metadata fields/values',
@@ -148,6 +154,15 @@ export const EmbedFilesArgsSchema = {
   required: ['sources'],
 } as const;
 
+// Schema for getting a specific ArangoDB node by key
+export const GetArangoDbNodeArgsSchema = {
+  type: 'object',
+  properties: {
+    nodeKey: { type: 'string', description: 'The _key of the ArangoDB node to fetch (e.g., chunk_xyz or doc_abc)' },
+  },
+  required: ['nodeKey'],
+} as const;
+
 
 // List of all tools provided by the server
 export const toolsList = [
@@ -161,4 +176,5 @@ export const toolsList = [
   { name: 'embed_files', description: 'Reads multiple local files and embeds their content', inputSchema: EmbedFilesArgsSchema }, // Updated description
   { name: 'query_collection', description: 'Query the knowledge base within a specific Vectra collection', inputSchema: QueryCollectionArgsSchema },
   { name: 'delete_file', description: 'Delete a file and its embeddings from Vectra', inputSchema: DeleteFileArgsSchema },
+  { name: 'get_arangodb_node', description: 'Fetch a specific node from ArangoDB by its key', inputSchema: GetArangoDbNodeArgsSchema }, // Added new tool
 ];

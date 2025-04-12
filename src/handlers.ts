@@ -46,12 +46,19 @@ export function formatResponse(toolName: string, responseData: any): { content: 
         break;
       case 'query_collection':
         if (responseData?.data?.results && Array.isArray(responseData.data.results)) {
-          // Removed the filter for 'DOCKER' section_title
-          const results = responseData.data.results; // Use original results directly
+          const results = responseData.data.results;
+          let synthesizedAnswer = results[0]?.synthesized_answer; // Check if synthesized answer exists on the first result
 
-          if (results.length > 0) { // Check original results length
-            summary = "Query Results:\n" + results.map((res: any, index: number) => { // Map original results
+          if (results.length > 0) {
+            // Start summary with synthesized answer if available
+            summary = synthesizedAnswer
+              ? `**Synthesized Answer:**\n${synthesizedAnswer}\n\n---\n\n**Supporting Results:**\n`
+              : "Query Results:\n";
+
+            summary += results.map((res: any, index: number) => {
+              const vectorId = res.vector_id || 'N/A';
               const distance = res.distance?.toFixed(4) || 'N/A';
+              const score = res.score?.toFixed(4) || 'N/A'; // Extract score
               const metadata = res.metadata || {};
               const text = metadata.chunk_text || 'No text found';
               const keywords = metadata.excerptKeywords;
@@ -59,16 +66,27 @@ export function formatResponse(toolName: string, responseData: any): { content: 
 
               // Build the output string using Markdown
               let outputParts = [`### Result ${index + 1}`]; // Markdown heading
+              outputParts.push(`**Vector ID:** ${vectorId}`); // Add Vector ID
               outputParts.push(`**Distance:** ${distance}`);
+              outputParts.push(`**Score:** ${score}`); // Add Score
               outputParts.push(`**Text:**\n\`\`\`\n${text}\n\`\`\``); // Code block for text
               if (keywords) {
                 outputParts.push(`**Keywords:**\n${keywords}`);
               }
-              if (questions) {
-                 outputParts.push(`**Questions Answered:**\n${questions}`);
-              }
-              return outputParts.join('\n\n'); // Join parts with double newline for spacing
-            }).join('\n\n---\n\n'); // Separate results with a horizontal rule
+               if (questions) {
+                  outputParts.push(`**Questions Answered:**\n${questions}`);
+               }
+               // --- Add ArangoDB Node Data to Output ---
+                if (metadata.arangodb_node) {
+                  outputParts.push(`**ArangoDB Node:**\n\`\`\`json\n${JSON.stringify(metadata.arangodb_node, null, 2)}\n\`\`\``);
+                }
+                // --- Add ArangoDB Neighbors Data to Output ---
+                if (metadata.arangodb_neighbors && Array.isArray(metadata.arangodb_neighbors) && metadata.arangodb_neighbors.length > 0) {
+                   outputParts.push(`**ArangoDB Neighbors (${metadata.arangodb_neighbors.length}):**\n\`\`\`json\n${JSON.stringify(metadata.arangodb_neighbors, null, 2)}\n\`\`\``);
+                }
+                // --- End Add ArangoDB Neighbors Data ---
+                return outputParts.join('\n\n'); // Join parts with double newline for spacing
+              }).join('\n\n---\n\n'); // Separate results with a horizontal rule
           } else {
             summary = "No relevant results found for the query in this collection.";
           }
@@ -78,6 +96,13 @@ export function formatResponse(toolName: string, responseData: any): { content: 
            // API returns 204 No Content, so responseData will be empty on success
            summary = `File deleted successfully.`;
            break;
+      case 'get_arangodb_node':
+        if (responseData?.data) { // Assuming backend returns { status: 'success', data: nodeData }
+          summary = `ArangoDB Node Data:\n\`\`\`json\n${JSON.stringify(responseData.data, null, 2)}\n\`\`\``;
+        } else {
+          summary = `Could not retrieve data for the specified ArangoDB node. Response: ${JSON.stringify(responseData)}`;
+        }
+        break;
       // Add cases for other tools if needed
     }
   } catch (e) {
@@ -96,10 +121,32 @@ export async function handleApiCall(
     endpoint: string,
     method: 'get' | 'post' | 'put' | 'delete',
     toolName: string, // Now required
-    data?: any
+    data?: any // This 'data' contains the arguments from the tool call
 ) {
   try {
-    const response = await axiosInstance({ method, url: endpoint, data });
+    // Prepare the actual payload for the API call
+    let apiPayload = data;
+
+    // Specifically for query_collection, ensure graph params are included if present
+    if (toolName === 'query_collection' && data) {
+        apiPayload = {
+            queryText: data.queryText,
+            limit: data.limit,
+            searchMode: data.searchMode,
+            maxDistance: data.maxDistance,
+            includeMetadataFilters: data.includeMetadataFilters,
+            excludeMetadataFilters: data.excludeMetadataFilters,
+            // Add graph parameters if they exist in the input 'data'
+            ...(data.enableGraphSearch !== undefined && { enableGraphSearch: data.enableGraphSearch }),
+            ...(data.graphDepth !== undefined && { graphDepth: data.graphDepth }),
+            ...(data.graphRelationshipTypes !== undefined && { graphRelationshipTypes: data.graphRelationshipTypes }),
+            // Add the missing graphTraversalDirection parameter
+            ...(data.graphTraversalDirection !== undefined && { graphTraversalDirection: data.graphTraversalDirection }),
+        };
+    }
+
+    // Use apiPayload for the request
+    const response = await axiosInstance({ method, url: endpoint, data: apiPayload });
 
     // Check for API-level errors (4xx, 5xx handled by validateStatus)
     if (response.status >= 400) {
@@ -252,25 +299,29 @@ export async function handleEmbedFiles(
            }
         }
 
+        // Store successful result
         results.push({ fileId, source });
-        successCount++;
         console.log(`Successfully processed source: ${source} (File ID: ${fileId || 'N/A'})`);
+        errorMsg = null; // Clear error message on success
 
       } catch (embedError) {
+        // This catch block now correctly captures errors re-thrown from the backend via handleEmbedFileContent
         const message = embedError instanceof McpError ? embedError.message : (embedError instanceof Error ? embedError.message : 'Unknown embedding error');
-        errorMsg = `Error processing source ${source}: ${message}`;
+        errorMsg = `Error processing source ${source}: ${message}`; // Assign error message
         console.error(errorMsg);
-        results.push({ source, error: message });
-        errorCount++;
+        results.push({ source, error: message }); // Add error result immediately
       }
     } else {
-      // Error occurred during read
+      // Error occurred during read, push the error result
       results.push({ source, error: errorMsg || 'Failed to read file content' });
-      errorCount++;
     }
      // Optional: Add a small delay between calls if needed
      // await new Promise(resolve => setTimeout(resolve, 100));
   }
+
+  // Recalculate success/error counts based on the final results array
+  successCount = results.filter(r => !r.error).length;
+  errorCount = results.filter(r => r.error).length;
 
   // Format the final summary response
   let summary = `Batch embed files completed. ${successCount} sources succeeded, ${errorCount} sources failed.`;
