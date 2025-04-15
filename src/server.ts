@@ -115,17 +115,16 @@ export class VectraMcpServer {
 
           case 'query_collection':
             if (!isValidQueryCollectionArgs(args)) throw new McpError(ErrorCode.InvalidParams, 'Invalid arguments for query_collection');
-            // Construct payload with all validated args
+            // Construct payload with all validated args, enforcing hybrid search and graph search
             const queryPayload = {
               queryText: args.queryText,
-              limit: args.limit, // Pass directly, backend should handle default
-              searchMode: args.searchMode,
-              // enableHeuristicReranking: args.enableHeuristicReranking, // REMOVED
+              limit: args.limit,
+              searchMode: 'hybrid', // Always use hybrid mode
               maxDistance: args.maxDistance,
               includeMetadataFilters: args.includeMetadataFilters,
               excludeMetadataFilters: args.excludeMetadataFilters,
               // --- Add Graph Search Params ---
-              enableGraphSearch: args.enableGraphSearch,
+              enableGraphSearch: true, // Always enable graph search
               graphDepth: args.graphDepth,
               graphTopN: args.graphTopN,
               graphRelationshipTypes: args.graphRelationshipTypes,

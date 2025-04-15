@@ -46,9 +46,9 @@ export const QueryCollectionArgsSchema = {
     collectionId: { type: 'string', description: 'ID of the collection to query within' },
     queryText: { type: 'string', description: 'The query text to search for' },
     limit: { type: 'number', description: 'Maximum number of results (default 10)', default: 10 },
-    searchMode: { type: 'string', enum: ['vector', 'keyword', 'hybrid'], description: 'Search mode (default vector)', default: 'vector' },
+    // searchMode is now hardcoded to 'hybrid' in the server logic
     maxDistance: { type: 'number', description: 'Max vector distance (0-2, lower is more similar)' },
-    enableGraphSearch: { type: 'boolean', description: 'Enable graph traversal enhancement (default false)', default: false },
+    // enableGraphSearch is now hardcoded to 'true' in the server logic
     graphDepth: { type: 'number', description: 'Depth for graph traversal (default 1)', default: 1 },
     graphRelationshipTypes: {
       type: 'array',
@@ -174,7 +174,7 @@ export const toolsList = [
   // Removed embed_text tool
   { name: 'embed_texts', description: 'Embeds multiple text items in batch into Vectra', inputSchema: EmbedTextsArgsSchema },
   { name: 'embed_files', description: 'Reads multiple local files and embeds their content', inputSchema: EmbedFilesArgsSchema }, // Updated description
-  { name: 'query_collection', description: 'Query the knowledge base within a specific Vectra collection', inputSchema: QueryCollectionArgsSchema },
+  { name: 'query_collection', description: 'Query the knowledge base within a specific Vectra collection (always uses hybrid search with graph enhancement)', inputSchema: QueryCollectionArgsSchema },
   { name: 'delete_file', description: 'Delete a file and its embeddings from Vectra', inputSchema: DeleteFileArgsSchema },
   { name: 'get_arangodb_node', description: 'Fetch a specific node from ArangoDB by its key', inputSchema: GetArangoDbNodeArgsSchema }, // Added new tool
 ];
