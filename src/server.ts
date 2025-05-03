@@ -8,7 +8,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import axios, { type AxiosInstance } from 'axios';
 // Removed FirecrawlApp import
-import { VECTRA_API_URL } from './config.js';
+import { VECTRA_API_URL, VECTRA_API_KEY } from './config.js'; // Import API Key
 import { toolsList } from './tools.js';
 // Import specific validators including the new one
 import {
@@ -33,9 +33,16 @@ import { handleApiCall, handleEmbedTexts, handleEmbedFiles } from './handlers.js
 export class VectraMcpServer {
   private server: Server;
   private axiosInstance: AxiosInstance;
-  // Removed firecrawl instance variable, using the one declared above
+  // Removed firecrawl instance variable
 
   constructor() {
+    // --- API Key Check ---
+    if (!VECTRA_API_KEY) {
+      console.error("FATAL ERROR: VECTRA_API_KEY environment variable is not set.");
+      process.exit(1); // Exit if API key is missing
+    }
+    // --- End API Key Check ---
+
     this.server = new Server(
       {
         name: 'vectra-mcp-server',
@@ -53,6 +60,7 @@ export class VectraMcpServer {
       baseURL: VECTRA_API_URL,
       headers: {
         'Content-Type': 'application/json',
+        'X-API-Key': VECTRA_API_KEY, // Add API Key header
       },
       validateStatus: (status) => status >= 200 && status < 500,
     });
@@ -81,11 +89,11 @@ export class VectraMcpServer {
         switch (name) {
           case 'create_collection':
             if (!isValidCreateCollectionArgs(args)) throw new McpError(ErrorCode.InvalidParams, 'Invalid arguments for create_collection');
-            return handleApiCall(this.axiosInstance, '/v1/collections', 'post', name, args);
+            return handleApiCall(this.axiosInstance, '/collections', 'post', name, args); // Removed /v1
 
           case 'list_collections':
              if (!isValidListCollectionsArgs(args)) throw new McpError(ErrorCode.InvalidParams, 'Invalid arguments for list_collections');
-            return handleApiCall(this.axiosInstance, '/v1/collections', 'get', name);
+            return handleApiCall(this.axiosInstance, '/collections', 'get', name); // Removed /v1
 
           // Removed embed_file case
 
@@ -107,43 +115,38 @@ export class VectraMcpServer {
 
           case 'add_file_to_collection':
             if (!isValidAddFileToCollectionArgs(args)) throw new McpError(ErrorCode.InvalidParams, 'Invalid arguments for add_file_to_collection');
-            return handleApiCall(this.axiosInstance, `/v1/collections/${args.collectionId}/files`, 'post', name, { fileId: args.fileId });
+            return handleApiCall(this.axiosInstance, `/collections/${args.collectionId}/files`, 'post', name, { fileId: args.fileId }); // Removed /v1
 
           case 'list_files_in_collection':
              if (!isValidListFilesInCollectionArgs(args)) throw new McpError(ErrorCode.InvalidParams, 'Invalid arguments for list_files_in_collection');
-            return handleApiCall(this.axiosInstance, `/v1/collections/${args.collectionId}/files`, 'get', name);
+            return handleApiCall(this.axiosInstance, `/collections/${args.collectionId}/files`, 'get', name); // Removed /v1
 
           case 'query_collection':
             if (!isValidQueryCollectionArgs(args)) throw new McpError(ErrorCode.InvalidParams, 'Invalid arguments for query_collection');
-            // Construct payload with all validated args, enforcing hybrid search and graph search
+            // Construct payload for the /query endpoint
             const queryPayload = {
+              collectionId: args.collectionId, // Add collectionId to the body
               queryText: args.queryText,
               limit: args.limit,
-              searchMode: 'hybrid', // Always use hybrid mode
+              searchMode: 'hybrid', // Hardcoded
               maxDistance: args.maxDistance,
               includeMetadataFilters: args.includeMetadataFilters,
               excludeMetadataFilters: args.excludeMetadataFilters,
-              // --- Add Graph Search Params ---
-              enableGraphSearch: true, // Always enable graph search
+              enableGraphSearch: true, // Hardcoded
               graphDepth: args.graphDepth,
               graphTopN: args.graphTopN,
               graphRelationshipTypes: args.graphRelationshipTypes,
-              // --- End Graph Search Params ---
             };
             // Remove undefined keys before sending
             Object.keys(queryPayload).forEach(key => queryPayload[key as keyof typeof queryPayload] === undefined && delete queryPayload[key as keyof typeof queryPayload]);
-            return handleApiCall(this.axiosInstance, `/v1/collections/${args.collectionId}/query`, 'post', name, queryPayload);
+            // Use the correct /query endpoint
+            return handleApiCall(this.axiosInstance, `/query`, 'post', name, queryPayload);
 
           case 'delete_file':
             if (!isValidDeleteFileArgs(args)) throw new McpError(ErrorCode.InvalidParams, 'Invalid arguments for delete_file');
-            return handleApiCall(this.axiosInstance, `/v1/files/${args.fileId}`, 'delete', name);
+            return handleApiCall(this.axiosInstance, `/files/${args.fileId}`, 'delete', name); // Removed /v1
 
-          // --- Add handler for the new tool ---
-          case 'get_arangodb_node':
-            if (!isValidGetArangoDbNodeArgs(args)) throw new McpError(ErrorCode.InvalidParams, 'Invalid arguments for get_arangodb_node');
-            // Call the new backend endpoint
-            return handleApiCall(this.axiosInstance, `/v1/arangodb/nodes/${args.nodeKey}`, 'get', name);
-          // --- End new tool handler ---
+          // Removed invalid get_arangodb_node handler
 
           default:
             throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);

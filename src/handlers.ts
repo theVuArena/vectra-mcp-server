@@ -45,8 +45,9 @@ export function formatResponse(toolName: string, responseData: any): { content: 
          }
         break;
       case 'query_collection':
-        if (responseData?.data?.results && Array.isArray(responseData.data.results)) {
-          const results = responseData.data.results;
+        // Expect responseData to be the array of results directly
+        if (Array.isArray(responseData)) {
+          const results = responseData;
           let synthesizedAnswer = results[0]?.synthesized_answer; // Check if synthesized answer exists on the first result
 
           if (results.length > 0) {
@@ -149,11 +150,24 @@ export async function handleApiCall(
     const response = await axiosInstance({ method, url: endpoint, data: apiPayload });
 
     // Check for API-level errors (4xx, 5xx handled by validateStatus)
+    // Check for API-level errors (4xx, 5xx handled by validateStatus)
     if (response.status >= 400) {
        const errorData = response.data;
-       const errorMessage = errorData?.message || `API Error: ${response.status} ${response.statusText}`;
-       console.error(`API Error calling ${method.toUpperCase()} ${endpoint}:`, errorMessage, errorData);
-       throw new McpError(ErrorCode.InternalError, errorMessage);
+       // Try to get a more specific message, include errorData if possible
+       let detailedErrorMessage = `API Error: ${response.status} ${response.statusText}`;
+       if (errorData?.message) {
+           detailedErrorMessage = `${detailedErrorMessage} - ${errorData.message}`;
+       }
+       // Include the full error data in the console log for debugging
+       console.error(`API Error calling ${method.toUpperCase()} ${endpoint}: Status ${response.status}`, errorData);
+       // Include a stringified version of errorData in the thrown error if it's not too large
+       try {
+           const errorDataString = JSON.stringify(errorData);
+           if (errorDataString.length < 500) { // Limit size to avoid overly long messages
+               detailedErrorMessage += ` | Details: ${errorDataString}`;
+           }
+       } catch (e) { /* ignore serialization errors */ }
+       throw new McpError(ErrorCode.InternalError, detailedErrorMessage);
     }
 
     // Format the successful response
@@ -167,17 +181,30 @@ export async function handleApiCall(
      if (error instanceof McpError) throw error; // Re-throw known MCP errors
 
      // Handle Axios-specific errors or network issues
+     // Handle Axios-specific errors or network issues
      let errorMessage = `Failed to communicate with Vectra API during ${toolName}`;
+     let errorDetails = ''; // To capture potential response data
      if (error instanceof AxiosError) {
-       errorMessage = error.message;
-       if (error.response?.data?.message) {
-          errorMessage = `${errorMessage}: ${error.response.data.message}`;
+       errorMessage = error.message; // Base Axios message
+       if (error.response?.data) {
+           // Try to extract a more specific message or details from the response data
+           const responseData = error.response.data;
+           if (responseData?.message) {
+               errorMessage = `${errorMessage}: ${responseData.message}`; // Append API message if available
+           }
+           try {
+               const responseDataString = JSON.stringify(responseData);
+                if (responseDataString.length < 500) {
+                   errorDetails = ` | Details: ${responseDataString}`;
+                }
+           } catch (e) { /* ignore */ }
        }
      } else if (error instanceof Error) {
        errorMessage = error.message;
      }
      console.error(`Network/Axios Error calling ${method.toUpperCase()} ${endpoint}:`, error);
-     throw new McpError(ErrorCode.InternalError, errorMessage);
+     // Combine base message with details if available
+     throw new McpError(ErrorCode.InternalError, `${errorMessage}${errorDetails}`);
   }
 }
 
@@ -372,8 +399,8 @@ export async function handleEmbedFileContent(
 
   try {
     const formData = new FormData();
-    // Append content as a buffer under the 'files' field name
-    formData.append('files', Buffer.from(scrapedContent, 'utf-8'), fileName); // Changed 'file' to 'files'
+    // Append content as a buffer under the 'file' field name (matching multer config)
+    formData.append('file', Buffer.from(scrapedContent, 'utf-8'), fileName); // Corrected field name to 'file'
     if (collectionId) {
       formData.append('collection_id', collectionId); // API expects this field name
     }
@@ -397,8 +424,8 @@ export async function handleEmbedFileContent(
       }
     }
 
-    // Call the original upload endpoint
-    const response = await axiosInstance.post('/v1/files/upload', formData, {
+    // Call the updated upload endpoint (removed /v1)
+    const response = await axiosInstance.post('/files/upload', formData, {
       headers: formData.getHeaders(), // Important for multipart/form-data
     });
 
@@ -406,7 +433,7 @@ export async function handleEmbedFileContent(
     if (response.status >= 400) {
        const errorData = response.data;
        const errorMessage = errorData?.message || `API Error: ${response.status} ${response.statusText}`;
-       console.error(`API Error calling POST /v1/files/upload for content from "${sourceIdentifier}":`, errorMessage, errorData);
+       console.error(`API Error calling POST /files/upload for content from "${sourceIdentifier}":`, errorMessage, errorData); // Removed /v1 from log
        throw new McpError(ErrorCode.InternalError, errorMessage);
     }
 

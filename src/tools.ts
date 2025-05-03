@@ -12,16 +12,7 @@ export const CreateCollectionArgsSchema = {
 
 export const ListCollectionsArgsSchema = { type: 'object', properties: {} } as const; // No args needed
 
-// Schema expects URL for scraping
-export const EmbedFileArgsSchema = {
-  type: 'object',
-  properties: {
-    url: { type: 'string', description: 'URL of the web page to scrape and embed' },
-    collectionId: { type: 'string', description: 'Optional ID of the collection to add the file to initially' },
-  },
-  required: ['url'],
-} as const;
-
+// Removed EmbedFileArgsSchema as the tool is removed
 
 export const AddFileToCollectionArgsSchema = {
   type: 'object',
@@ -46,10 +37,11 @@ export const QueryCollectionArgsSchema = {
     collectionId: { type: 'string', description: 'ID of the collection to query within' },
     queryText: { type: 'string', description: 'The query text to search for' },
     limit: { type: 'number', description: 'Maximum number of results (default 10)', default: 10 },
-    // searchMode is now hardcoded to 'hybrid' in the server logic
+    // searchMode is hardcoded to 'hybrid' in the server logic, removed from schema
     maxDistance: { type: 'number', description: 'Max vector distance (0-2, lower is more similar)' },
-    // enableGraphSearch is now hardcoded to 'true' in the server logic
+    // enableGraphSearch is hardcoded to 'true' in the server logic, removed from schema
     graphDepth: { type: 'number', description: 'Depth for graph traversal (default 1)', default: 1 },
+    graphTopN: { type: 'number', description: 'Max number of neighbors to fetch per node during graph traversal (default 5)', default: 5 }, // Added missing param
     graphRelationshipTypes: {
       type: 'array',
       description: 'Optional list of relationship types to filter graph traversal (e.g., ["cites", "mentions"])',
@@ -92,20 +84,7 @@ export const DeleteFileArgsSchema = {
   required: ['fileId'],
 } as const;
 
-// Schema for embedding raw text
-export const EmbedTextArgsSchema = {
-  type: 'object',
-  properties: {
-    text: { type: 'string', description: 'The text content to embed' },
-    collectionId: { type: 'string', description: 'Optional ID of the collection to add the text to initially' },
-    metadata: {
-      type: 'object',
-      description: 'Optional key-value pairs for metadata (e.g., source_url, title, tags)',
-      additionalProperties: { type: 'string' } // Allow arbitrary string key-value pairs
-    }
-  },
-  required: ['text'],
-} as const;
+// Removed EmbedTextArgsSchema as the tool is removed
 
 // Schema for embedding multiple texts in batch
 export const EmbedTextsArgsSchema = {
@@ -154,27 +133,17 @@ export const EmbedFilesArgsSchema = {
   required: ['sources'],
 } as const;
 
-// Schema for getting a specific ArangoDB node by key
-export const GetArangoDbNodeArgsSchema = {
-  type: 'object',
-  properties: {
-    nodeKey: { type: 'string', description: 'The _key of the ArangoDB node to fetch (e.g., chunk_xyz or doc_abc)' },
-  },
-  required: ['nodeKey'],
-} as const;
+// Removed GetArangoDbNodeArgsSchema as the tool is removed
 
 
 // List of all tools provided by the server
 export const toolsList = [
   { name: 'create_collection', description: 'Create a new Vectra collection', inputSchema: CreateCollectionArgsSchema },
   { name: 'list_collections', description: 'List existing Vectra collections', inputSchema: ListCollectionsArgsSchema },
-  // Removed embed_file tool
   { name: 'add_file_to_collection', description: 'Add an embedded file to a Vectra collection', inputSchema: AddFileToCollectionArgsSchema },
   { name: 'list_files_in_collection', description: 'List files within a specific Vectra collection', inputSchema: ListFilesInCollectionArgsSchema },
-  // Removed embed_text tool
   { name: 'embed_texts', description: 'Embeds multiple text items in batch into Vectra', inputSchema: EmbedTextsArgsSchema },
-  { name: 'embed_files', description: 'Reads multiple local files and embeds their content', inputSchema: EmbedFilesArgsSchema }, // Updated description
-  { name: 'query_collection', description: 'Query the knowledge base within a specific Vectra collection (always uses hybrid search with graph enhancement)', inputSchema: QueryCollectionArgsSchema },
+  { name: 'embed_files', description: 'Reads multiple local files and embeds their content', inputSchema: EmbedFilesArgsSchema },
+  { name: 'query_collection', description: 'Query the knowledge base within a specific Vectra collection (uses hybrid search with graph traversal)', inputSchema: QueryCollectionArgsSchema }, // Updated description
   { name: 'delete_file', description: 'Delete a file and its embeddings from Vectra', inputSchema: DeleteFileArgsSchema },
-  { name: 'get_arangodb_node', description: 'Fetch a specific node from ArangoDB by its key', inputSchema: GetArangoDbNodeArgsSchema }, // Added new tool
 ];
