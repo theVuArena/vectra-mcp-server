@@ -36,13 +36,28 @@ export function formatResponse(toolName: string, responseData: any): { content: 
         summary = responseData?.message || `File successfully added to collection.`;
         break;
       case 'list_files_in_collection':
-         if (responseData?.data?.files && Array.isArray(responseData.data.files)) {
-           if (responseData.data.files.length > 0) {
-              summary = `Files in collection:\n` + responseData.data.files.map((file: any) => `- ${file.filename} (ID: ${file.id})`).join('\n');
-           } else {
-              summary = "No files found in this collection.";
-           }
-         }
+        let filesToList = null;
+        if (responseData?.data?.files && Array.isArray(responseData.data.files)) {
+          filesToList = responseData.data.files;
+        } else if (responseData?.files && Array.isArray(responseData.files)) {
+          filesToList = responseData.files;
+        } else if (Array.isArray(responseData)) {
+          filesToList = responseData;
+        }
+
+        if (filesToList && filesToList.length > 0) {
+          summary = `Files in collection:\n` + filesToList.map((file: any) => {
+            let line = `- ${file.filename || 'Unknown filename'}`;
+            if (file.id) {
+              line += ` (ID: ${file.id})`;
+            }
+            return line;
+          }).join('\n');
+        } else if (filesToList) { // It was an array, but empty
+          summary = "No files found in this collection.";
+        }
+        // If filesToList is null, the default summary "Tool executed successfully" will be used,
+        // or it will fall through to the generic error handling if responseData is not structured as expected.
         break;
       case 'query_collection':
         // Expect responseData to be the array of results directly
@@ -131,6 +146,7 @@ export async function handleApiCall(
     // Specifically for query_collection, ensure graph params are included if present
     if (toolName === 'query_collection' && data) {
         apiPayload = {
+            collectionId: data.collectionId, // Ensure collectionId is passed
             queryText: data.queryText,
             limit: data.limit,
             searchMode: data.searchMode,
@@ -398,12 +414,13 @@ export async function handleEmbedFileContent(
 
 
   try {
+    // MCP Server DEBUG: handleEmbedFileContent received collectionId log removed.
+    
+    const uploadPath = '/files/upload'; // Base path for the upload
+
     const formData = new FormData();
     // Append content as a buffer under the 'file' field name (matching multer config)
     formData.append('file', Buffer.from(scrapedContent, 'utf-8'), fileName); // Corrected field name to 'file'
-    if (collectionId) {
-      formData.append('collection_id', collectionId); // API expects this field name
-    }
 
     // Add provided metadata to the form data, ensuring source_url/file_path from itemMetadata are included
     const finalMetadata = { ...metadata }; // Copy incoming metadata
@@ -423,11 +440,21 @@ export async function handleEmbedFileContent(
         }
       }
     }
+    
+    // Prepare Axios request configuration
+    const requestConfig: { headers: any; params?: { collectionId: string } } = {
+        headers: formData.getHeaders(), // Important for multipart/form-data
+    };
 
-    // Call the updated upload endpoint (removed /v1)
-    const response = await axiosInstance.post('/files/upload', formData, {
-      headers: formData.getHeaders(), // Important for multipart/form-data
-    });
+    // If collectionId is provided, add it to the params for Axios to handle
+    if (collectionId) {
+        requestConfig.params = { collectionId: collectionId };
+    }
+    
+    // MCP Server DEBUG: Posting to path with params log removed.
+
+    // Call the endpoint using the path and the requestConfig
+    const response = await axiosInstance.post(uploadPath, formData, requestConfig);
 
      // Check for API-level errors (4xx)
     if (response.status >= 400) {
